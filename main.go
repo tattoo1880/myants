@@ -3,9 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/tattoo1880/myants/myants"
 	"log"
 	"math/rand"
-	"myants/myants"
 	"strconv"
 	"time"
 )
