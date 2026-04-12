@@ -15,7 +15,7 @@ func main() {
 	timeout, cancelFunc := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancelFunc()
 
-	a, err := myants.NewMyAnts[int, string](5, 2, timeout)
+	a, err := myants.NewMyAnts[int, string](5, 1, timeout)
 	if err != nil {
 		panic(err)
 	}

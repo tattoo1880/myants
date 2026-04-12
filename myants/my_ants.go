@@ -30,7 +30,7 @@ func NewMyAnts[T any, R any](size int, hz int, ctx context.Context) (MyAnts[T, R
 
 	}
 
-	limiter := rate.NewLimiter(rate.Limit(hz), hz)
+	limiter := rate.NewLimiter(rate.Limit(hz), 1)
 	//todo return
 
 	return &MyAntsImpl[T, R]{
