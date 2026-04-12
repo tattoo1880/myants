@@ -1,4 +1,4 @@
-module myants
+module github.com/tattoo1880/myants
 
 go 1.26.1
 
