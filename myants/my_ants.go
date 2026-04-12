@@ -6,22 +6,25 @@ import (
 	"github.com/panjf2000/ants/v2"
 	"golang.org/x/time/rate"
 	"log"
-	"sync"
 )
 
-type TaskFunc[T any, R any] func(ctx context.Context, param T, page int) (R, error)
+type SizeAble interface {
+	Len() int
+}
 
-type MyAnts[T any, R any] interface {
+type TaskFunc[T SizeAble, R any] func(ctx context.Context, param T, page int) (R, error)
+
+type MyAnts[T SizeAble, R any] interface {
 	UseMyAnts(task TaskFunc[T, R], param T) (chan R, error)
 }
 
-type MyAntsImpl[T any, R any] struct {
+type MyAntsImpl[T SizeAble, R any] struct {
 	MyPool      *ants.Pool
 	RateLimiter *rate.Limiter
 	Ctx         context.Context
 }
 
-func NewMyAnts[T any, R any](size int, hz int, ctx context.Context) (MyAnts[T, R], error) {
+func NewMyAnts[T SizeAble, R any](size int, hz int, ctx context.Context) (MyAnts[T, R], error) {
 
 	mypool, err := ants.NewPool(size)
 	if err != nil {
@@ -47,13 +50,15 @@ func (m *MyAntsImpl[T, R]) UseMyAnts(task TaskFunc[T, R], param T) (chan R, erro
 
 	result := make(chan R, 10)
 
-	defer m.MyPool.Release()
+	//todo 判断T的长度,如果长度为0,则直接返回空的结果
+	if param.Len() == 0 {
+		close(result)
+		return result, nil
+	}
 
-	//jobdone := make(chan struct{}, 10)
-
-	var wg sync.WaitGroup
-	var mu sync.Mutex
-	for i := 0; i < 10; i++ {
+	//var wg sync.WaitGroup
+	fmt.Println("开始执行任务,总页数:", param.Len())
+	for i := 0; i < param.Len(); i++ {
 
 		page := i
 
@@ -64,28 +69,34 @@ func (m *MyAntsImpl[T, R]) UseMyAnts(task TaskFunc[T, R], param T) (chan R, erro
 			continue
 		}
 
+		//wg.Add(1)
 		runerror := m.MyPool.Submit(func() {
 
-			wg.Go(func() {
-				r, err2 := task(m.Ctx, param, page)
-				if err2 != nil {
-					log.Println(err2)
-				}
-				mu.Lock()
-				defer mu.Unlock()
-				fmt.Println("Task", param, "page", page, "is done with result:", r)
-				result <- r
+			//defer wg.Done()
+			r, err1 := task(m.Ctx, param, page)
+			if err1 != nil {
+				log.Println(err)
+				return
+			}
+			fmt.Println("page", page, "is done with result:", r)
+			result <- r
 
-			})
 		})
 
 		if runerror != nil {
+			//wg.Done()
 			return nil, runerror
 		}
 	}
 
-	wg.Wait()
-	close(result)
+	go func() {
+		err := m.MyPool.ReleaseContext(m.Ctx)
+		if err != nil {
+			log.Println("等待多有完成发生错误", err)
+			return
+		} // 等所有 worker 执行完毕
+		close(result)
+	}()
 
 	return result, nil
 
