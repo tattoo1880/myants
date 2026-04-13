@@ -79,7 +79,15 @@ func (m *MyAntsImpl[T, R]) UseMyAnts(task TaskFunc[T, R], param T) (chan R, erro
 				return
 			}
 			fmt.Println("page", page, "is done with result:", r)
-			result <- r
+
+			select {
+			case <-m.Ctx.Done():
+				log.Println("上下文已取消，停止发送结果")
+				return
+			case result <- r:
+				log.Println("结果已发送到通道:", r)
+
+			}
 
 		})
 
